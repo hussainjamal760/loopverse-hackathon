@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import { EmailOutbox } from '@/server/models';
 
 interface SendSetupEmailParams {
@@ -7,6 +6,62 @@ interface SendSetupEmailParams {
   studentName: string;
   setupUrl: string;
   expiresInHours?: number;
+}
+
+interface SendDecisionEmailParams {
+  userId: string;
+  to: string;
+  studentName: string;
+  requestType: string;
+  decision: 'APPROVED' | 'REJECTED';
+  remark?: string;
+}
+
+function getEmailTransporter() {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const nodemailer = require('../../../../backend/node_modules/nodemailer');
+    const user = process.env.EMAIL_USER || 'hjamal9865@gmail.com';
+    const pass = process.env.EMAIL_PASS;
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+    const emailFrom = process.env.EMAIL_FROM || `ExamSlot <${user}>`;
+
+    // 1. Direct App Password Mode (Recommended & Easiest)
+    if (user && pass) {
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user,
+          pass,
+        },
+      });
+      return { transporter, emailFrom };
+    }
+
+    // 2. OAuth2 Mode (Requires matching refresh token)
+    if (clientId && clientSecret && refreshToken && refreshToken.trim().length > 0) {
+      const transporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
+        auth: {
+          type: 'OAuth2',
+          user,
+          clientId,
+          clientSecret,
+          refreshToken,
+        },
+      });
+      return { transporter, emailFrom };
+    }
+
+    return null;
+  } catch (err) {
+    console.error('Failed to initialize nodemailer transporter:', err);
+    return null;
+  }
 }
 
 /**
@@ -56,7 +111,7 @@ function renderSetupEmailHtml(studentName: string, setupUrl: string, expiresInHo
 }
 
 /**
- * Creates email outbox entry and attempts delivery via Gmail OAuth2 transporter
+ * Creates email outbox entry and attempts delivery via Gmail transporter
  */
 export async function sendStudentSetupEmail({
   userId,
@@ -65,7 +120,6 @@ export async function sendStudentSetupEmail({
   setupUrl,
   expiresInHours = 24,
 }: SendSetupEmailParams): Promise<{ sent: boolean; outboxId: string; error?: string }> {
-  // 1. Record in EmailOutbox
   const outbox = await EmailOutbox.create({
     userId,
     template: 'STUDENT_SETUP_INVITE',
@@ -76,30 +130,10 @@ export async function sendStudentSetupEmail({
   });
 
   try {
-    // Attempt nodemailer send using backend's installed nodemailer module
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const nodemailer = require('../../../../backend/node_modules/nodemailer');
+    const config = getEmailTransporter();
 
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
-    const emailUser = process.env.EMAIL_USER || 'hjamal9865@gmail.com';
-    const emailFrom = process.env.EMAIL_FROM || `ExamSlot <${emailUser}>`;
-
-    if (clientId && clientSecret && refreshToken) {
-      const transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 465,
-        secure: true,
-        auth: {
-          type: 'OAuth2',
-          user: emailUser,
-          clientId,
-          clientSecret,
-          refreshToken,
-        },
-      });
-
+    if (config) {
+      const { transporter, emailFrom } = config;
       const html = renderSetupEmailHtml(studentName, setupUrl, expiresInHours);
 
       await transporter.sendMail({
@@ -118,9 +152,9 @@ export async function sendStudentSetupEmail({
       return { sent: true, outboxId: outbox._id.toString() };
     } else {
       outbox.status = 'FAILED';
-      outbox.sanitizedError = 'Missing Google OAuth2 credentials in environment';
+      outbox.sanitizedError = 'Missing email credentials (EMAIL_PASS or GOOGLE_REFRESH_TOKEN) in environment';
       await outbox.save();
-      return { sent: false, outboxId: outbox._id.toString(), error: 'Email service unconfigured' };
+      return { sent: false, outboxId: outbox._id.toString(), error: 'Email service unconfigured: Missing EMAIL_PASS or GOOGLE_REFRESH_TOKEN' };
     }
   } catch (err: any) {
     console.error('Failed to deliver setup email:', err.message);
@@ -132,15 +166,9 @@ export async function sendStudentSetupEmail({
   }
 }
 
-interface SendDecisionEmailParams {
-  userId: string;
-  to: string;
-  studentName: string;
-  requestType: string;
-  decision: 'APPROVED' | 'REJECTED';
-  remark?: string;
-}
-
+/**
+ * Sends formal change request decision notification email
+ */
 export async function sendRequestDecisionEmailNotification({
   userId,
   to,
@@ -151,37 +179,18 @@ export async function sendRequestDecisionEmailNotification({
 }: SendDecisionEmailParams): Promise<{ sent: boolean; outboxId: string; error?: string }> {
   const outbox = await EmailOutbox.create({
     userId,
-    template: 'REQUEST_DECISION_NOTIFICATION',
-    relatedEntityId: `${requestType}:${decision}`,
+    template: 'CHANGE_REQUEST_DECISION',
+    relatedEntityId: `${requestType}_${decision}`,
     status: 'PENDING',
     attempts: 0,
     nextAttemptAt: new Date(),
   });
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const nodemailer = require('../../../../backend/node_modules/nodemailer');
+    const config = getEmailTransporter();
 
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
-    const emailUser = process.env.EMAIL_USER || 'hjamal9865@gmail.com';
-    const emailFrom = process.env.EMAIL_FROM || `ExamSlot <${emailUser}>`;
-
-    if (clientId && clientSecret && refreshToken) {
-      const transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 465,
-        secure: true,
-        auth: {
-          type: 'OAuth2',
-          user: emailUser,
-          clientId,
-          clientSecret,
-          refreshToken,
-        },
-      });
-
+    if (config) {
+      const { transporter, emailFrom } = config;
       const isApproved = decision === 'APPROVED';
       const typeLabel = requestType === 'BRANCH' ? 'Campus Branch Transfer' : 'Exam Date Sheet Reschedule';
 
@@ -216,7 +225,7 @@ export async function sendRequestDecisionEmailNotification({
     <p style="font-size: 13px; color: #4b5563;">
       ${
         isApproved
-          ? 'An authorization grant has been issued to your portal account. Log in to your student planner to apply your changes once.'
+          ? 'Your request has been approved and applied to your portal timetable.'
           : 'Your schedule commitments remain unchanged as originally finalized.'
       }
     </p>
@@ -244,9 +253,9 @@ export async function sendRequestDecisionEmailNotification({
       return { sent: true, outboxId: outbox._id.toString() };
     } else {
       outbox.status = 'FAILED';
-      outbox.sanitizedError = 'Missing Google OAuth2 credentials in environment';
+      outbox.sanitizedError = 'Missing email credentials (EMAIL_PASS or GOOGLE_REFRESH_TOKEN) in environment';
       await outbox.save();
-      return { sent: false, outboxId: outbox._id.toString(), error: 'Email service unconfigured' };
+      return { sent: false, outboxId: outbox._id.toString(), error: 'Email service unconfigured: Missing EMAIL_PASS or GOOGLE_REFRESH_TOKEN' };
     }
   } catch (err: any) {
     console.error('Failed to deliver decision email:', err.message);
@@ -257,4 +266,3 @@ export async function sendRequestDecisionEmailNotification({
     return { sent: false, outboxId: outbox._id.toString(), error: err.message };
   }
 }
-
