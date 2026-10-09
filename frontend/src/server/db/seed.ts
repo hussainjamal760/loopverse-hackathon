@@ -19,7 +19,7 @@ import {
 export async function seedDatabase() {
   await connectToDatabase();
 
-  console.log('🌱 Starting database seed...');
+  console.log('[Seed] Starting database seed...');
 
   // 1. Clear existing data
   await Promise.all([
@@ -49,7 +49,7 @@ export async function seedDatabase() {
     role: 'ADMIN',
     active: true,
   });
-  console.log('✅ Created Admin user:', adminUser.email);
+  console.log('[Seed] Created Admin user:', adminUser.email);
 
   // 3. Create Branches
   const branchesData = [
@@ -58,7 +58,7 @@ export async function seedDatabase() {
     { code: 'ISB-01', name: 'Islamabad Campus', city: 'Islamabad', address: 'Sector H-8/4, Service Road South', contactNumber: '+92 51 4861 2345', active: true },
   ];
   const branches = await Branch.insertMany(branchesData);
-  console.log(`✅ Created ${branches.length} branches`);
+  console.log(`[Seed] Created ${branches.length} branches`);
 
   // 4. Create Courses
   const coursesData = [
@@ -72,7 +72,7 @@ export async function seedDatabase() {
     { code: 'MGT101', title: 'Introduction to Management', creditHours: 3, department: 'Management', active: true },
   ];
   const courses = await Course.insertMany(coursesData);
-  console.log(`✅ Created ${courses.length} courses`);
+  console.log(`[Seed] Created ${courses.length} courses`);
 
   // 5. Create Exam Slots for Courses
   // Compute dates relative to seed execution (+7 to +21 days)
@@ -127,7 +127,7 @@ export async function seedDatabase() {
   });
 
   const slots = await ExamSlot.insertMany(slotsToInsert);
-  console.log(`✅ Created ${slots.length} exam slots`);
+  console.log(`[Seed] Created ${slots.length} exam slots`);
 
   // Helper student generator
   const defaultPasswordHash = await bcrypt.hash('StudentPassword123!', 10);
@@ -383,5 +383,5 @@ export async function seedDatabase() {
     reviewedAt: new Date(),
   });
 
-  console.log('🎉 Database seeded successfully!');
+  console.log('[Seed] Database seeded successfully!');
 }

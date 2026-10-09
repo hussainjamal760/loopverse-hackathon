@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { cookies } from 'next/headers';
 import { connectToDatabase } from '@/lib/db';
-import { Session, User, Student, IUser, IStudent } from '@/server/models';
+import { Session, User, Student, Branch, IUser, IStudent } from '@/server/models';
 
 const SESSION_COOKIE_NAME = 'examslot_session';
 const SESSION_TTL_HOURS = parseInt(process.env.SESSION_TTL_HOURS || '12', 10);
@@ -62,7 +62,7 @@ export async function getAuthenticatedUser(): Promise<{ user: IUser; student?: I
 
   let student: IStudent | null = null;
   if (user.role === 'STUDENT') {
-    student = await Student.findOne({ userId: user._id });
+    student = await Student.findOne({ userId: user._id }).populate('selectedBranchId');
   }
 
   return { user, student };

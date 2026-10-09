@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db';
-import { ChangeRequest, ChangeGrant, Student } from '@/server/models';
+import { ChangeRequest, Student, Branch } from '@/server/models';
 import { getAuthenticatedUser } from '@/server/auth/session';
 
 export async function GET(req: Request) {
@@ -14,6 +14,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status');
     const type = searchParams.get('type');
+    const search = searchParams.get('search') || '';
     const page = parseInt(searchParams.get('page') || '1', 10);
     const pageSize = Math.min(parseInt(searchParams.get('pageSize') || '10', 10), 100);
 
@@ -25,13 +26,39 @@ export async function GET(req: Request) {
       query.studentId = authData.student._id;
     }
 
-    if (status) query.status = status;
-    if (type) query.type = type;
+    if (status && status !== 'ALL') {
+      query.status = status;
+    }
+    if (type && type !== 'ALL') {
+      query.type = type;
+    }
+
+    // Search filter across student name, reg number, or reason
+    if (search) {
+      const matchedStudents = await Student.find({
+        $or: [
+          { fullName: { $regex: search, $options: 'i' } },
+          { registrationNumber: { $regex: search, $options: 'i' } },
+        ],
+      }).select('_id');
+
+      query.$or = [
+        { reason: { $regex: search, $options: 'i' } },
+        { studentId: { $in: matchedStudents.map((s) => s._id) } },
+      ];
+    }
 
     const total = await ChangeRequest.countDocuments(query);
     const requests = await ChangeRequest.find(query)
-      .populate('studentId', 'fullName registrationNumber program')
-      .populate('reviewedBy', 'email')
+      .populate({
+        path: 'studentId',
+        select: 'fullName registrationNumber program selectedBranchId phone userId',
+        populate: [
+          { path: 'selectedBranchId', select: 'code name city' },
+          { path: 'userId', select: 'email active' },
+        ],
+      })
+      .populate('reviewedBy', 'email role')
       .sort({ createdAt: -1 })
       .skip((page - 1) * pageSize)
       .limit(pageSize);
@@ -42,7 +69,7 @@ export async function GET(req: Request) {
         page,
         pageSize,
         total,
-        totalPages: Math.ceil(total / pageSize),
+        totalPages: Math.ceil(total / pageSize) || 1,
       },
     });
   } catch (err: any) {

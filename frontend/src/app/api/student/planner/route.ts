@@ -47,6 +47,7 @@ export async function GET() {
 
     return NextResponse.json({
       student,
+      branch: student.selectedBranchId,
       assignmentsFinalized: student.assignmentsFinalized,
       assignedCount: courses.length,
       courses,

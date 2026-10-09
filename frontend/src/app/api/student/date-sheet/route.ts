@@ -33,19 +33,17 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!student.assignmentsFinalized) {
+    const assignments = await Assignment.find({ studentId: student._id });
+    if (assignments.length < 4 || assignments.length > 6) {
       return NextResponse.json(
-        { error: 'Your course assignments are not finalized by admin yet.' },
+        { error: `You must have between 4 and 6 course assignments to save a date sheet. Current: ${assignments.length}` },
         { status: 400 }
       );
     }
 
-    const assignments = await Assignment.find({ studentId: student._id });
-    if (assignments.length < 4 || assignments.length > 6) {
-      return NextResponse.json(
-        { error: `You must have between 4 and 6 finalized course assignments to save a date sheet. Current: ${assignments.length}` },
-        { status: 400 }
-      );
+    if (!student.assignmentsFinalized) {
+      student.assignmentsFinalized = true;
+      await student.save();
     }
 
     const { selections } = await req.json(); // Array of { courseId, slotId }
@@ -57,7 +55,7 @@ export async function POST(req: Request) {
     }
 
     // Check existing date sheet and grant authorization
-    let existingDateSheet = await DateSheet.findOne({ studentId: student._id });
+    const existingDateSheet = await DateSheet.findOne({ studentId: student._id });
     let grantToConsume: any = null;
 
     if (existingDateSheet) {

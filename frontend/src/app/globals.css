@@ -1,22 +1,36 @@
 @import "tailwindcss";
 
 @theme {
-  --color-canvas: #f7f5ef;
-  --color-surface: #ffffff;
-  --color-surface-soft: #f0eee6;
-  --color-ink: #24352b;
-  --color-ink-muted: #59645b;
-  --color-primary: #285742;
-  --color-primary-hover: #204735;
-  --color-selected: #e7eee3;
-  --color-accent: #9a4f36;
-  --color-accent-soft: #f5e6dc;
-  --color-warning: #795d18;
-  --color-warning-soft: #f5edce;
-  --color-danger: #a3342f;
-  --color-danger-soft: #faeae7;
-  --color-border: #dedcd1;
-  --color-control-border: #7b8578;
+  --color-canvas: #eafeef;
+  --color-surface: #eafeef;
+  --color-surface-soft: #e4f9e9;
+  --color-surface-container: #dff3e4;
+  --color-surface-container-low: #e4f9e9;
+  --color-surface-container-high: #d9edde;
+  --color-surface-container-highest: #d3e7d9;
+  --color-surface-container-lowest: #ffffff;
+  --color-ink: #0e1f16;
+  --color-ink-muted: #414943;
+  --color-on-surface: #0e1f16;
+  --color-on-surface-variant: #414943;
+  --color-primary: #0d402c;
+  --color-primary-container: #285742;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #99cbb0;
+  --color-primary-fixed: #bbeed2;
+  --color-primary-fixed-dim: #9fd2b7;
+  --color-secondary: #934a31;
+  --color-secondary-container: #ffa182;
+  --color-secondary-fixed: #ffdbd0;
+  --color-tertiary: #483400;
+  --color-tertiary-container: #644a03;
+  --color-tertiary-fixed: #ffdf9e;
+  --color-tertiary-fixed-dim: #e7c273;
+  --color-on-tertiary-fixed: #261a00;
+  --color-outline: #717973;
+  --color-outline-variant: #c0c9c2;
+  --color-border: #c0c9c2;
+  --color-control-border: #717973;
 }
 
 :root {
