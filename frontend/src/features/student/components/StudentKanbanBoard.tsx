@@ -7,6 +7,9 @@ import {
   HiCheckCircle,
   HiLockClosed,
   HiCursorArrowRays,
+  HiClipboardDocumentCheck,
+  HiExclamationTriangle,
+  HiArrowRight,
 } from 'react-icons/hi2';
 import { toast } from 'sonner';
 import { KanbanColumn } from './KanbanColumn';
@@ -32,12 +35,16 @@ interface StudentKanbanBoardProps {
   courses: KanbanCourse[];
   onSelectSlot: (courseCode: string, slotId: string) => void;
   isDateSheetLocked?: boolean;
+  onSaveDateSheet?: () => void;
+  hasConflict?: boolean;
 }
 
 export function StudentKanbanBoard({
   courses,
   onSelectSlot,
   isDateSheetLocked = false,
+  onSaveDateSheet,
+  hasConflict = false,
 }: StudentKanbanBoardProps) {
   const [draggedCourseCode, setDraggedCourseCode] = useState<string | null>(null);
   const [activeTargetColumn, setActiveTargetColumn] = useState<
@@ -52,6 +59,9 @@ export function StudentKanbanBoard({
     (c) => c.status === 'SCHEDULED' && !isDateSheetLocked
   );
   const lockedCourses = isDateSheetLocked ? courses : [];
+
+  const isAllScheduled = courses.length > 0 && unscheduledCourses.length === 0;
+  const canSave = isAllScheduled && !hasConflict && !isDateSheetLocked;
 
   // Drag Handlers
   const handleDragStart = (e: React.DragEvent, courseCode: string) => {
@@ -79,7 +89,6 @@ export function StudentKanbanBoard({
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
-    // Only clear target if moving outside container boundaries
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX;
     const y = e.clientY;
@@ -121,15 +130,24 @@ export function StudentKanbanBoard({
       onSelectSlot(targetCourse.code, '');
       toast.info(`Unscheduled ${targetCourse.code}. Moved back to To Schedule column.`);
     } else if (targetCol === 'LOCKED') {
-      toast.warning(
-        'Date sheet must be reviewed & confirmed in the planner before locking final schedule.'
-      );
+      if (hasConflict) {
+        toast.error('Cannot lock: Please resolve exam timetable conflicts first.');
+        return;
+      }
+
+      if (canSave && onSaveDateSheet) {
+        onSaveDateSheet();
+      } else {
+        toast.info(
+          `Schedule all ${courses.length} courses first to lock and finalize your date sheet.`
+        );
+      }
     }
   };
 
   return (
     <div className="w-full flex flex-col gap-6">
-      {/* Board Header Intro */}
+      {/* Board Header Intro with Save Date Sheet Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#DEDCD1]">
         <div>
           <div className="flex items-center gap-2">
@@ -146,11 +164,40 @@ export function StudentKanbanBoard({
           </p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-[#59645B]">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#285742] animate-pulse" />
-          <span>Live drag & drop sync active</span>
+        {/* Prominent Save Date Sheet Button in Header */}
+        <div className="flex items-center gap-3">
+          {onSaveDateSheet && !isDateSheetLocked && (
+            <button
+              type="button"
+              disabled={!canSave}
+              onClick={onSaveDateSheet}
+              className={`px-4 py-2.5 rounded-xl text-xs font-semibold inline-flex items-center gap-2 transition-colors shadow-xs ${
+                canSave
+                  ? 'bg-[#285742] hover:bg-[#204735] text-white cursor-pointer'
+                  : 'bg-[#F0EEE6] text-[#59645B] cursor-not-allowed border border-[#DEDCD1]'
+              }`}
+            >
+              <HiClipboardDocumentCheck className="w-4 h-4" />
+              <span>Save Date Sheet</span>
+            </button>
+          )}
+
+          <div className="hidden sm:flex items-center gap-2 text-xs text-[#59645B]">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#285742] animate-pulse" />
+            <span>{scheduledCourses.length} of {courses.length} scheduled</span>
+          </div>
         </div>
       </div>
+
+      {/* Conflict Alert Banner if any */}
+      {hasConflict && (
+        <div className="p-3.5 rounded-xl bg-[#FAEAE7] border border-[#A3342F]/30 flex items-center gap-2.5 text-[#A3342F] text-xs">
+          <HiExclamationTriangle className="w-5 h-5 shrink-0" />
+          <span className="font-medium">
+            Schedule Conflict: Two or more exams share an overlapping time. Adjust slots to enable saving.
+          </span>
+        </div>
+      )}
 
       {/* 3-Column Kanban Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-start">
@@ -232,9 +279,34 @@ export function StudentKanbanBoard({
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, 'LOCKED')}
           emptyStateIcon={<HiLockClosed className="w-7 h-7 text-[#59645B]" />}
-          emptyStateTitle="Draft Mode"
-          emptyStateSub="Complete all course times and click 'Review date sheet' in the planner to lock your final schedule."
+          emptyStateTitle={isAllScheduled ? 'Ready to Lock' : 'Draft Mode'}
+          emptyStateSub={
+            isAllScheduled
+              ? 'All courses scheduled! Click the save button below or drag here to confirm.'
+              : `Schedule all courses to finalize your date sheet (${scheduledCourses.length}/${courses.length} ready).`
+          }
         >
+          {/* Action Card inside Column 3 when all scheduled */}
+          {!isDateSheetLocked && isAllScheduled && onSaveDateSheet && (
+            <div className="p-4 rounded-xl bg-[#E7EEE3] border border-[#285742] flex flex-col gap-2.5 mb-3 shadow-xs">
+              <div className="flex items-center gap-2 text-[#285742] font-semibold text-xs">
+                <HiCheckCircle className="w-5 h-5 shrink-0" />
+                <span>All {courses.length} courses scheduled!</span>
+              </div>
+              <p className="text-[11px] text-[#24352B] leading-relaxed">
+                You have chosen dates and times for all assigned courses. Save your date sheet now.
+              </p>
+              <button
+                type="button"
+                onClick={onSaveDateSheet}
+                className="w-full py-2.5 rounded-xl bg-[#285742] hover:bg-[#204735] text-white text-xs font-semibold inline-flex items-center justify-center gap-2 cursor-pointer shadow-xs transition-colors"
+              >
+                <HiClipboardDocumentCheck className="w-4 h-4" />
+                <span>Save Date Sheet</span>
+              </button>
+            </div>
+          )}
+
           <AnimatePresence mode="popLayout">
             {lockedCourses.map((course) => (
               <KanbanCard
@@ -250,6 +322,52 @@ export function StudentKanbanBoard({
           </AnimatePresence>
         </KanbanColumn>
       </div>
+
+      {/* Bottom Sticky Action Bar in Kanban Mode */}
+      {!isDateSheetLocked && onSaveDateSheet && (
+        <div className="p-4 rounded-2xl bg-[#FFFFFF] border border-[#DEDCD1] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div
+              className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs ${
+                canSave
+                  ? 'bg-[#E7EEE3] text-[#285742]'
+                  : 'bg-[#F0EEE6] text-[#59645B]'
+              }`}
+            >
+              {scheduledCourses.length}/{courses.length}
+            </div>
+            <div>
+              <div className="text-xs font-semibold text-[#24352B]">
+                {canSave
+                  ? 'Ready to confirm exam schedule'
+                  : `Please schedule remaining ${courses.length - scheduledCourses.length} course(s)`}
+              </div>
+              <div className="text-[11px] text-[#59645B]">
+                {hasConflict
+                  ? 'Overlapping exam times detected. Resolve conflicts to proceed.'
+                  : canSave
+                  ? 'Click "Save Date Sheet" to review and lock your timetable in database.'
+                  : 'Drag unscheduled cards to the center column or choose available time slots.'}
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            disabled={!canSave}
+            onClick={onSaveDateSheet}
+            className={`px-6 py-3 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors shadow-xs ${
+              canSave
+                ? 'bg-[#285742] hover:bg-[#204735] text-white cursor-pointer'
+                : 'bg-[#F0EEE6] text-[#59645B] cursor-not-allowed border border-[#DEDCD1]'
+            }`}
+          >
+            <HiClipboardDocumentCheck className="w-4 h-4" />
+            <span>Save Date Sheet</span>
+            <HiArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

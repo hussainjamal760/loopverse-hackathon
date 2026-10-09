@@ -16,12 +16,14 @@ interface StudentHeaderProps {
   studentName?: string;
   viewMode?: 'planner' | 'kanban';
   onToggleViewMode?: (mode: 'planner' | 'kanban') => void;
+  sidebarWidth?: string;
 }
 
 export function StudentHeader({
   studentName = 'Student',
   viewMode = 'planner',
   onToggleViewMode,
+  sidebarWidth = 'pl-0 lg:pl-[68px]',
 }: StudentHeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -43,8 +45,8 @@ export function StudentHeader({
   ];
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-[#FFFFFF] border-b border-[#DEDCD1] shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
-      <div className="h-[72px] max-w-6xl mx-auto px-6 flex items-center justify-between">
+    <header className="fixed top-0 left-0 right-0 z-40 bg-[#FFFFFF] border-b border-[#DEDCD1] shadow-[0_1px_8px_rgba(0,0,0,0.04)] print:hidden">
+      <div className={`h-[72px] max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between ${sidebarWidth}`}>
         {/* Brand Mark */}
         <Link href="/student/planner" className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl bg-[#E7EEE3] text-[#285742] flex items-center justify-center font-bold">

@@ -191,10 +191,18 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
 
         {/* Enrolled Courses & Schedule */}
         <div className="bg-[#FFFFFF] rounded-2xl p-6 border border-[#DEDCD1] shadow-xs space-y-4">
-          <h2 className="text-sm font-semibold text-[#0d402c] flex items-center gap-2 border-b border-[#EAE7DD] pb-2">
-            <HiBookOpen className="w-4 h-4 text-[#285742]" />
-            Assigned Courses ({assignments.length})
-          </h2>
+          <div className="flex items-center justify-between border-b border-[#EAE7DD] pb-2">
+            <h2 className="text-sm font-semibold text-[#0d402c] flex items-center gap-2">
+              <HiBookOpen className="w-4 h-4 text-[#285742]" />
+              Assigned Courses ({assignments.length})
+            </h2>
+            <Link
+              href={`/admin/assignments?search=${encodeURIComponent(student.registrationNumber)}`}
+              className="text-xs font-semibold text-[#285742] hover:underline"
+            >
+              Manage Courses →
+            </Link>
+          </div>
           {assignments.length === 0 ? (
             <p className="text-xs text-[#59645B] italic">No courses currently assigned to this student.</p>
           ) : (

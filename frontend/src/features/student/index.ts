@@ -9,3 +9,4 @@ export { StateInspector, type DemoState } from './components/StateInspector';
 export { LockedDateSheetView, type DateSheetRow } from './components/LockedDateSheetView';
 export { StudentEnrollmentPage } from './components/StudentEnrollmentPage';
 export { StudentDossierCard } from './components/StudentDossierCard';
+export { StudentSidebar } from './components/StudentSidebar';

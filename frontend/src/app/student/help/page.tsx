@@ -14,7 +14,7 @@ import {
   HiOutlineDocumentCheck,
 } from 'react-icons/hi2';
 import { toast } from 'sonner';
-import { StudentHeader } from '@/features/student';
+import { StudentHeader, StudentSidebar } from '@/features/student';
 
 interface ExistingRequest {
   _id: string;
@@ -104,9 +104,15 @@ export default function StudentHelpPage() {
 
   return (
     <div className="min-h-screen bg-[#F7F5EF] flex flex-col font-sans">
+      {/* Sleek Auto-Collapsible Student Sidebar */}
+      <StudentSidebar
+        studentName={studentName}
+        pendingRequestsCount={existingRequests.filter((r) => r.status === 'PENDING').length}
+      />
+
       <StudentHeader studentName={studentName} />
 
-      <main className="w-full pt-[88px] pb-16 flex-1">
+      <main className="w-full pt-[88px] pb-16 flex-1 pl-0 lg:pl-[68px]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
           <div className="mb-6">
             <Link

@@ -206,15 +206,25 @@ export function StudentDetailModal({
 
         {/* Footer Actions */}
         <div className="px-6 py-3.5 border-t border-[#EAE7DD] bg-[#F7F5EF] flex items-center justify-between shrink-0">
-          <button
-            type="button"
-            onClick={handleResendInvite}
-            disabled={resending}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-[#285742] hover:bg-[#E7EEE3] border border-[#285742]/30 rounded-xl transition-colors disabled:opacity-50"
-          >
-            <HiArrowPath className={`w-3.5 h-3.5 ${resending ? 'animate-spin' : ''}`} />
-            <span>Resend Account Setup Email</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleResendInvite}
+              disabled={resending}
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-[#285742] hover:bg-[#E7EEE3] border border-[#285742]/30 rounded-xl transition-colors disabled:opacity-50"
+            >
+              <HiArrowPath className={`w-3.5 h-3.5 ${resending ? 'animate-spin' : ''}`} />
+              <span>Resend Account Setup Email</span>
+            </button>
+
+            <a
+              href={`/admin/assignments?search=${encodeURIComponent(student.registrationNumber || '')}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#285742] hover:bg-[#E7EEE3] border border-[#285742]/30 rounded-xl transition-colors"
+            >
+              <HiAcademicCap className="w-3.5 h-3.5" />
+              <span>Manage Courses</span>
+            </a>
+          </div>
 
           <button
             type="button"

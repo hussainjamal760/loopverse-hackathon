@@ -16,7 +16,7 @@ import {
   HiOutlineDocumentText,
   HiOutlineCalendar,
 } from 'react-icons/hi2';
-import { StudentHeader } from '@/features/student';
+import { StudentHeader, StudentSidebar } from '@/features/student';
 
 interface StudentProfile {
   id: string;
@@ -137,9 +137,16 @@ export default function StudentProfilePage() {
 
   return (
     <div className="min-h-screen bg-[#F7F5EF] flex flex-col font-sans">
+      {/* Sleek Auto-Collapsible Student Sidebar */}
+      <StudentSidebar
+        studentName={student.fullName}
+        registrationNumber={student.registrationNumber}
+        program={student.program}
+      />
+
       <StudentHeader studentName={student.fullName} />
 
-      <main className="w-full pt-[88px] pb-16 flex-1">
+      <main className="w-full pt-[88px] pb-16 flex-1 pl-0 lg:pl-[68px]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
           <div className="mb-6">
             <Link

@@ -8,13 +8,18 @@ import {
   HiOutlineQuestionMarkCircle,
   HiClock,
   HiExclamationCircle,
+  HiExclamationTriangle,
   HiArrowPath,
+  HiCheckCircle,
+  HiClipboardDocumentCheck,
 } from 'react-icons/hi2';
 import { toast } from 'sonner';
 import {
   StudentHeader,
+  StudentSidebar,
   StudentHero,
   StudentStatusStrip,
+  StudentDossierCard,
   CourseCard,
   ExamAgendaPanel,
   StudentKanbanBoard,
@@ -65,6 +70,12 @@ function formatDateShort(d: Date | string): string {
   const date = new Date(d);
   if (isNaN(date.getTime())) return '';
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+function formatDayOfWeek(d: Date | string): string {
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-GB', { weekday: 'long' });
 }
 
 function getMonthAbbr(d: Date | string): string {
@@ -161,11 +172,17 @@ export default function StudentPlannerPage() {
   };
 
   // Conflict / Overlap detection
-  const selectedSlotObjects = Object.values(selections)
-    .map((slotId) => slots.find((s) => s._id.toString() === slotId))
-    .filter(Boolean) as SlotEntity[];
+  const selectedSlotObjects = Object.entries(selections)
+    .map(([courseId, slotId]) => {
+      const slot = slots.find((s) => s._id.toString() === slotId);
+      const course = courses.find((c) => c._id.toString() === courseId);
+      return slot ? { ...slot, courseCode: course?.code || 'Course' } : null;
+    })
+    .filter(Boolean) as (SlotEntity & { courseCode: string })[];
 
   let hasConflict = false;
+  let conflictMessage = '';
+
   for (let i = 0; i < selectedSlotObjects.length; i++) {
     for (let j = i + 1; j < selectedSlotObjects.length; j++) {
       const a = selectedSlotObjects[i];
@@ -177,6 +194,7 @@ export default function StudentPlannerPage() {
 
       if (startA < endB && startB < endA) {
         hasConflict = true;
+        conflictMessage = `Time conflict detected between ${a.courseCode} and ${b.courseCode} on ${formatDateShort(a.startsAt)}. Overlapping exam slots are blocked.`;
         break;
       }
     }
@@ -191,6 +209,16 @@ export default function StudentPlannerPage() {
 
   // Confirm and persist date sheet to MongoDB
   const handleConfirmSave = async () => {
+    if (hasConflict) {
+      toast.error(conflictMessage || 'Cannot save: Resolve exam time conflicts first.');
+      return;
+    }
+
+    if (plannedCount < totalCourses) {
+      toast.error(`Please select a time slot for all ${totalCourses} assigned courses before saving.`);
+      return;
+    }
+
     try {
       setSaving(true);
       const payload = {
@@ -218,14 +246,14 @@ export default function StudentPlannerPage() {
       setCanEditDateSheet(false);
       // Refresh to ensure DB sync
       loadPlannerData();
-    } catch (err: any) {
+    } catch {
       toast.error('Network error saving date sheet. Please retry.');
     } finally {
       setSaving(false);
     }
   };
 
-  // Build rows for locked view
+  // Build rows for locked view, sorted chronologically by rawDate
   const lockedRows: DateSheetRow[] = (dateSheetData?.selections || []).map(
     (sel: any, idx: number) => {
       const course = sel.courseId;
@@ -235,6 +263,7 @@ export default function StudentPlannerPage() {
 
       return {
         date: startsAt ? formatDateShort(startsAt) + ' ' + new Date(startsAt).getFullYear() : 'TBD',
+        day: startsAt ? formatDayOfWeek(startsAt) : 'TBD',
         timeSlot:
           startsAt && endsAt
             ? `${formatTime(startsAt)} – ${formatTime(endsAt)}`
@@ -244,6 +273,7 @@ export default function StudentPlannerPage() {
         hallDesk: `Hall ${String.fromCharCode(65 + (idx % 4))} / Desk ${String(
           idx * 7 + 12
         ).padStart(2, '0')}`,
+        rawDate: startsAt ? new Date(startsAt).getTime() : 0,
       };
     }
   );
@@ -255,14 +285,18 @@ export default function StudentPlannerPage() {
       : courses.map((course, idx) => {
           const slotId = selections[course._id.toString()];
           const slot = slots.find((s) => s._id.toString() === slotId);
+          const startsAt = slot?.startsAt;
+          const endsAt = slot?.endsAt;
           return {
-            date: slot ? formatDateShort(slot.startsAt) + ' ' + new Date(slot.startsAt).getFullYear() : 'TBD',
-            timeSlot: slot ? `${formatTime(slot.startsAt)} – ${formatTime(slot.endsAt)}` : 'TBD',
+            date: startsAt ? formatDateShort(startsAt) + ' ' + new Date(startsAt).getFullYear() : 'TBD',
+            day: startsAt ? formatDayOfWeek(startsAt) : 'TBD',
+            timeSlot: startsAt && endsAt ? `${formatTime(startsAt)} – ${formatTime(endsAt)}` : 'TBD',
             code: course.code,
             title: course.title,
             hallDesk: `Hall ${String.fromCharCode(65 + (idx % 4))} / Desk ${String(
               idx * 7 + 12
             ).padStart(2, '0')}`,
+            rawDate: startsAt ? new Date(startsAt).getTime() : 0,
           };
         });
 
@@ -380,8 +414,8 @@ export default function StudentPlannerPage() {
       return {
         code: c.code,
         title: c.title,
-        date: formatDateShort(slot.startsAt),
-        time: formatTime(slot.startsAt),
+        date: formatDateShort(slot.startsAt) + ' (' + formatDayOfWeek(slot.startsAt) + ')',
+        time: `${formatTime(slot.startsAt)} – ${formatTime(slot.endsAt)}`,
       };
     })
     .filter(Boolean) as Array<{ code: string; title: string; date: string; time: string }>;
@@ -411,6 +445,13 @@ export default function StudentPlannerPage() {
 
   return (
     <div className="min-h-screen bg-[#F7F5EF] flex flex-col font-sans">
+      {/* Sleek Auto-Collapsible Student Sidebar */}
+      <StudentSidebar
+        studentName={studentName}
+        registrationNumber={registrationNumber}
+        program={program}
+      />
+
       {/* Fixed Header with View Switcher */}
       <StudentHeader
         studentName={studentName}
@@ -419,7 +460,7 @@ export default function StudentPlannerPage() {
       />
 
       {/* Main Container */}
-      <main className="w-full pt-[88px] pb-16 flex-1">
+      <main className="w-full pt-[88px] pb-16 flex-1 pl-0 lg:pl-[68px]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           {/* Hero Section */}
           <StudentHero
@@ -429,6 +470,11 @@ export default function StudentPlannerPage() {
             semester={semester}
           />
 
+          {/* Section 5.3: Complete Student Information (personal, parent and academic) in read-only form along with selected branch */}
+          {student && (
+            <StudentDossierCard student={student} branch={branch} />
+          )}
+
           {/* Compact 3-Card Status Strip */}
           <StudentStatusStrip
             branchName={branchName}
@@ -437,6 +483,24 @@ export default function StudentPlannerPage() {
             totalCreditHours={totalCreditHours}
             selectedCount={plannedCount}
           />
+
+          {/* Conflict Banner: Clear Message & Block Saving (Section 5.3) */}
+          {hasConflict && (
+            <div className="mb-6 p-4 rounded-2xl bg-[#FAEAE7] border-2 border-[#A3342F] text-[#A3342F] flex items-center gap-3 shadow-xs">
+              <HiExclamationTriangle className="w-6 h-6 shrink-0 text-[#A3342F]" />
+              <div>
+                <h4 className="font-bold text-xs uppercase tracking-wider">
+                  Exam Schedule Conflict Detected
+                </h4>
+                <p className="text-xs text-[#24352B] mt-0.5 font-medium">
+                  {conflictMessage}
+                </p>
+                <p className="text-[11px] text-[#A3342F] mt-0.5">
+                  Two courses cannot share the same date and overlapping time interval. Please re-assign one of the conflicting course slots.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Conditional: Locked View OR Live Planner / Kanban */}
           {isLocked ? (
@@ -450,6 +514,7 @@ export default function StudentPlannerPage() {
                 rows={displayLockedRows}
                 hasUnusedGrant={hasUnusedGrant}
                 onUnlock={() => setIsLocked(false)}
+                onBranchUpdated={loadPlannerData}
               />
             </div>
           ) : totalCourses === 0 ? (
@@ -475,17 +540,21 @@ export default function StudentPlannerPage() {
             </div>
           ) : viewMode === 'kanban' ? (
             /* Kanban Board Mode */
-            <div className="mb-8 bg-[#FFFFFF] p-6 rounded-2xl border border-[#DEDCD1] shadow-xs">
-              <StudentKanbanBoard
-                courses={kanbanCourses}
-                onSelectSlot={(courseCode, slotId) => {
-                  const targetCourse = courses.find((c) => c.code === courseCode);
-                  if (targetCourse) {
-                    handleSelectSlot(targetCourse._id.toString(), slotId);
-                  }
-                }}
-                isDateSheetLocked={isLocked}
-              />
+            <div className="mb-8">
+              <div className="bg-[#FFFFFF] p-6 rounded-2xl border border-[#DEDCD1] shadow-xs">
+                <StudentKanbanBoard
+                  courses={kanbanCourses}
+                  onSelectSlot={(courseCode, slotId) => {
+                    const targetCourse = courses.find((c) => c.code === courseCode);
+                    if (targetCourse) {
+                      handleSelectSlot(targetCourse._id.toString(), slotId);
+                    }
+                  }}
+                  isDateSheetLocked={isLocked}
+                  onSaveDateSheet={() => setReviewModalOpen(true)}
+                  hasConflict={hasConflict}
+                />
+              </div>
             </div>
           ) : (
             /* Standard 2-Column Planner Grid (65% / 35%) */
@@ -498,7 +567,7 @@ export default function StudentPlannerPage() {
                       Choose your exam times
                     </h2>
                     <p className="text-xs text-[#59645B] mt-0.5">
-                      Select one available date and time for every course.
+                      Select one available date and time for every course from the slots created by admin.
                     </p>
                   </div>
 
@@ -520,14 +589,14 @@ export default function StudentPlannerPage() {
                     onSelectSlot={(slotId) => handleSelectSlot(course.id, slotId)}
                     helperText={
                       course.slots.length === 0
-                        ? 'No exam slots published for this course yet.'
+                        ? 'No exam slots published for this course yet. Please contact administration.'
                         : undefined
                     }
                   />
                 ))}
               </div>
 
-              {/* Right Column: Sticky Agenda Panel */}
+              {/* Right Column: Sticky Agenda Panel & Save Action */}
               <div className="lg:col-span-4">
                 <ExamAgendaPanel
                   items={agendaItems}
@@ -552,7 +621,7 @@ export default function StudentPlannerPage() {
                     Your student information
                   </h4>
                   <p className="text-xs text-[#59645B] mt-0.5">
-                    View your registered personal details, guardian contact, and academic department records.
+                    View verified personal credentials, guardian details, and degree records on your official student profile.
                   </p>
                 </div>
               </div>
@@ -575,7 +644,7 @@ export default function StudentPlannerPage() {
                     Need to make a change?
                   </h4>
                   <p className="text-xs text-[#59645B] mt-0.5">
-                    Send an emergency shift request or branch reassignment ticket to your university registrar.
+                    Submit a formal ticket to change examination campus center or request a date sheet timetable revision.
                   </p>
                 </div>
               </div>
@@ -583,7 +652,7 @@ export default function StudentPlannerPage() {
                 href="/student/help"
                 className="text-xs font-semibold text-[#285742] hover:text-[#204735] inline-flex items-center gap-1 self-start"
               >
-                <span>Get help</span>
+                <span>Get help & submit request</span>
                 <span>→</span>
               </Link>
             </div>
@@ -602,7 +671,7 @@ export default function StudentPlannerPage() {
       />
 
       {/* Footer */}
-      <footer className="w-full bg-[#FFFFFF] border-t border-[#DEDCD1] py-6">
+      <footer className="w-full bg-[#FFFFFF] border-t border-[#DEDCD1] py-6 pl-0 lg:pl-[68px] print:hidden">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#59645B] text-center sm:text-left">
           <p>ExamSlot · University student exam portal · Fall 2026 Session</p>
           <div className="flex items-center gap-5">

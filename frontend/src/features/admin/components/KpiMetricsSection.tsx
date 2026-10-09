@@ -2,22 +2,19 @@
 
 import React from 'react';
 import { HiAcademicCap, HiCalendarDays, HiClock, HiExclamationTriangle } from 'react-icons/hi2';
+import { AdminStats } from '../types';
 
 interface KpiMetricsSectionProps {
-  stats?: {
-    totalStudents?: number;
-    totalSavedSheets?: number;
-    draftSlots?: number;
-    pendingRequests?: number;
-  };
+  stats?: AdminStats;
 }
 
 export function KpiMetricsSection({ stats }: KpiMetricsSectionProps) {
-  const totalStudents = stats?.totalStudents ?? 240;
-  const savedSheets = stats?.totalSavedSheets ?? 168;
-  const percentageSaved = ((savedSheets / (totalStudents || 1)) * 100).toFixed(1);
-  const inProgress = totalStudents - savedSheets - 18;
-  const pendingAction = 18;
+  const totalStudents = stats?.totalStudents ?? 0;
+  const savedSheets = stats?.totalSavedSheets ?? 0;
+  const totalBranches = stats?.totalBranches ?? 0;
+  const needAssignment = stats?.needAssignment ?? 0;
+  const inProgress = stats?.planningInProgress ?? Math.max(0, totalStudents - savedSheets - needAssignment);
+  const percentageSaved = totalStudents > 0 ? ((savedSheets / totalStudents) * 100).toFixed(1) : '0';
 
   return (
     <section aria-label="Key Performance Indicators" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -36,7 +33,9 @@ export function KpiMetricsSection({ stats }: KpiMetricsSectionProps) {
             {totalStudents}
           </div>
           <div className="text-sm font-medium text-[#0e1f16] mt-1">Total students</div>
-          <div className="text-xs text-[#414943] mt-0.5">Across 3 exam branches</div>
+          <div className="text-xs text-[#414943] mt-0.5">
+            Across {totalBranches} {totalBranches === 1 ? 'exam branch' : 'exam branches'}
+          </div>
         </div>
       </div>
 
@@ -66,15 +65,15 @@ export function KpiMetricsSection({ stats }: KpiMetricsSectionProps) {
             <HiClock className="w-5 h-5" />
           </div>
           <span className="text-xs font-semibold text-[#483400] bg-[#ffdf9e]/40 px-2.5 py-0.5 rounded-full border border-[#e7c273]/40">
-            Draft
+            In progress
           </span>
         </div>
         <div>
           <div className="text-[32px] font-semibold text-[#483400] tracking-tight tabular-nums">
-            {inProgress > 0 ? inProgress : 54}
+            {inProgress}
           </div>
           <div className="text-sm font-medium text-[#0e1f16] mt-1">Planning in progress</div>
-          <div className="text-xs text-[#414943] mt-0.5">Branch selected, not saved</div>
+          <div className="text-xs text-[#414943] mt-0.5">Assigned, awaiting sheet save</div>
         </div>
       </div>
 
@@ -90,10 +89,10 @@ export function KpiMetricsSection({ stats }: KpiMetricsSectionProps) {
         </div>
         <div>
           <div className="text-[32px] font-semibold text-[#934a31] tracking-tight tabular-nums">
-            {pendingAction}
+            {needAssignment}
           </div>
           <div className="text-sm font-medium text-[#0e1f16] mt-1">Needs course assignment</div>
-          <div className="text-xs text-[#414943] mt-0.5">Not ready to plan</div>
+          <div className="text-xs text-[#414943] mt-0.5">Draft enrollment status</div>
         </div>
       </div>
     </section>

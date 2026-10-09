@@ -383,5 +383,41 @@ export async function seedDatabase() {
     reviewedAt: new Date(),
   });
 
+  // 6. Seed Realistic Audit Trail Events
+  await AuditEvent.insertMany([
+    {
+      actorUserId: adminUser._id,
+      action: 'REQUEST_REJECTED',
+      entityType: 'ChangeRequest',
+      entityId: studentE._id.toString(),
+      sanitizedMetadata: 'Rejected branch transfer for SU-2026-005 (transfer window closed)',
+      createdAt: new Date(Date.now() - 25 * 60 * 1000), // 25m ago
+    },
+    {
+      actorUserId: adminUser._id,
+      action: 'EXAM_SLOTS_PUBLISHED',
+      entityType: 'ExamSlot',
+      entityId: courses[0]._id.toString(),
+      sanitizedMetadata: 'Published 24 exam slots for Fall 2026 examination cycle',
+      createdAt: new Date(Date.now() - 75 * 60 * 1000), // 1h 15m ago
+    },
+    {
+      actorUserId: adminUser._id,
+      action: 'STUDENT_ENROLLED',
+      entityType: 'Student',
+      entityId: studentD._id.toString(),
+      sanitizedMetadata: 'Enrolled student Zainab Ahmed (SU-2026-004) into BS Data Science',
+      createdAt: new Date(Date.now() - 180 * 60 * 1000), // 3h ago
+    },
+    {
+      actorUserId: adminUser._id,
+      action: 'BRANCH_CREATED',
+      entityType: 'Branch',
+      entityId: branches[0]._id.toString(),
+      sanitizedMetadata: 'Initialized campus branches: Karachi, Lahore, and Islamabad',
+      createdAt: new Date(Date.now() - 360 * 60 * 1000), // 6h ago
+    },
+  ]);
+
   console.log('[Seed] Database seeded successfully!');
 }

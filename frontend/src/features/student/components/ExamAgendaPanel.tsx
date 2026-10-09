@@ -141,14 +141,16 @@ export function ExamAgendaPanel({
               : 'bg-[#F0EEE6] text-[#59645B] cursor-not-allowed border border-[#DEDCD1]'
           }`}
         >
-          <span>Review date sheet</span>
+          <span>Review & Save Date Sheet</span>
           <HiArrowRight className="w-4 h-4" />
         </button>
 
         <span className="text-[11px] text-[#59645B] text-center">
-          {isAllPlanned
+          {hasConflict
+            ? 'Blocked: Overlapping exam time conflict detected.'
+            : isAllPlanned
             ? `All ${totalCount} courses scheduled. Ready to finalize.`
-            : `Select a time for all courses to continue.`}
+            : `Select a time for all ${totalCount} courses to continue.`}
         </span>
       </div>
     </div>
