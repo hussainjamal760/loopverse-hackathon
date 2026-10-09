@@ -59,8 +59,21 @@ export interface PendingRequestItem {
   registrationNumber: string;
   initials: string;
   requestType: 'Date sheet change' | 'Branch change';
+  type?: 'BRANCH' | 'DATE_SHEET';
+  status?: 'PENDING' | 'APPROVED' | 'REJECTED';
   raisedTime: string;
   reason?: string;
+  remark?: string;
+  program?: string;
+  branchName?: string;
+  branchCity?: string;
+  requestedBranchName?: string;
+  targetCourseCode?: string;
+  targetCourseTitle?: string;
+  currentSlotTime?: string;
+  bookedCoursesCount?: number;
+  totalCoursesCount?: number;
+  createdAt?: string;
 }
 
 export interface AdminOverviewData {

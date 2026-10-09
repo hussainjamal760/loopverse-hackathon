@@ -168,6 +168,7 @@ export default function AdminOverviewPage() {
       <RequestReviewDrawer
         selectedRequest={selectedReviewRequest}
         onClear={() => setSelectedReviewRequest(null)}
+        onDecided={fetchOverview}
       />
 
       {/* 7. System Status Footer */}

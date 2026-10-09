@@ -265,6 +265,11 @@ export interface IChangeRequest extends Document {
   type: 'BRANCH' | 'DATE_SHEET';
   reason: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  currentBranchId?: mongoose.Types.ObjectId | null;
+  requestedBranchId?: mongoose.Types.ObjectId | null;
+  targetCourseId?: mongoose.Types.ObjectId | null;
+  currentSlotId?: mongoose.Types.ObjectId | null;
+  requestedSlotId?: mongoose.Types.ObjectId | null;
   remark?: string | null;
   reviewedBy?: mongoose.Types.ObjectId | null;
   createdAt: Date;
@@ -277,6 +282,11 @@ const ChangeRequestSchema = new Schema<IChangeRequest>(
     type: { type: String, enum: ['BRANCH', 'DATE_SHEET'], required: true },
     reason: { type: String, required: true, trim: true },
     status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED'], default: 'PENDING' },
+    currentBranchId: { type: Schema.Types.ObjectId, ref: 'Branch', default: null },
+    requestedBranchId: { type: Schema.Types.ObjectId, ref: 'Branch', default: null },
+    targetCourseId: { type: Schema.Types.ObjectId, ref: 'Course', default: null },
+    currentSlotId: { type: Schema.Types.ObjectId, ref: 'ExamSlot', default: null },
+    requestedSlotId: { type: Schema.Types.ObjectId, ref: 'ExamSlot', default: null },
     remark: { type: String, default: null },
     reviewedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     reviewedAt: { type: Date, default: null },

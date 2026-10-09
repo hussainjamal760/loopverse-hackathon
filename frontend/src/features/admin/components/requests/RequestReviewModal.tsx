@@ -13,7 +13,8 @@ import {
   HiBuildingOffice2,
   HiEnvelope,
   HiDocumentText,
-  HiArrowPath,
+  HiArrowRight,
+  HiSparkles,
 } from 'react-icons/hi2';
 
 export interface ChangeRequestData {
@@ -22,6 +23,11 @@ export interface ChangeRequestData {
   type: 'BRANCH' | 'DATE_SHEET';
   reason: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  currentBranchId?: any;
+  requestedBranchId?: any;
+  targetCourseId?: any;
+  currentSlotId?: any;
+  requestedSlotId?: any;
   remark?: string | null;
   reviewedBy?: any;
   reviewedAt?: string | null;
@@ -33,6 +39,21 @@ interface RequestReviewModalProps {
   onClose: () => void;
   onDecided: () => void;
   request: ChangeRequestData | null;
+}
+
+function formatSlotDateTime(slot?: { startsAt: string; endsAt: string } | null): string {
+  if (!slot?.startsAt) return 'Not assigned';
+  try {
+    const s = new Date(slot.startsAt);
+    const e = new Date(slot.endsAt);
+    if (isNaN(s.getTime())) return 'TBA';
+    const dateStr = s.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const startStr = s.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    const endStr = e.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    return `${dateStr} (${startStr} – ${endStr})`;
+  } catch {
+    return 'TBA';
+  }
 }
 
 export function RequestReviewModal({
@@ -107,7 +128,7 @@ export function RequestReviewModal({
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 space-y-5 text-xs">
+        <div className="p-6 space-y-4 text-xs max-h-[80vh] overflow-y-auto">
           {error && (
             <div className="p-3 bg-[#FAEAE7] border border-[#A3342F]/30 text-[#A3342F] text-xs rounded-xl flex items-center gap-2">
               <HiExclamationCircle className="w-4 h-4 shrink-0" />
@@ -133,7 +154,7 @@ export function RequestReviewModal({
               <div>
                 Current Branch:{' '}
                 <strong className="text-[#24352B]">
-                  {student.selectedBranchId?.code || 'Not selected'}
+                  {student.selectedBranchId?.code || request.currentBranchId?.code || 'Not selected'}
                 </strong>
               </div>
               <div>
@@ -143,14 +164,96 @@ export function RequestReviewModal({
             </div>
           </div>
 
+          {/* STRUCTURED CHANGE PROPOSAL DISPLAY */}
+          <div className="p-4 rounded-xl border-2 border-[#285742]/20 bg-[#E7EEE3]/30 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-xs uppercase tracking-wider text-[#285742] flex items-center gap-1.5">
+                <HiSparkles className="w-4 h-4" />
+                <span>Requested Change Details</span>
+              </span>
+              <span className="text-[10px] bg-[#285742] text-white px-2 py-0.5 rounded font-semibold">
+                Auto-Apply on Approval
+              </span>
+            </div>
+
+            {/* Branch Transfer Specific Display */}
+            {request.type === 'BRANCH' && (
+              <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div className="p-2.5 bg-white rounded-lg border border-[#DEDCD1]">
+                    <div className="text-[10px] text-[#59645B] uppercase font-bold">Current Center</div>
+                    <div className="font-semibold text-[#24352B] mt-0.5">
+                      {request.currentBranchId?.name || student.selectedBranchId?.name || 'Not assigned'}
+                    </div>
+                    <div className="text-[11px] text-[#59645B]">
+                      {request.currentBranchId?.city || student.selectedBranchId?.city || ''}
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 bg-[#E7EEE3] rounded-lg border border-[#285742]/40">
+                    <div className="text-[10px] text-[#285742] uppercase font-bold flex items-center gap-1">
+                      <span>Requested Center</span>
+                      <HiArrowRight className="w-3 h-3" />
+                    </div>
+                    <div className="font-bold text-[#0d402c] mt-0.5">
+                      {request.requestedBranchId?.name || 'Open Selection'}
+                    </div>
+                    <div className="text-[11px] text-[#285742]">
+                      {request.requestedBranchId?.city} — {request.requestedBranchId?.address || ''}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Date Sheet Exam Reschedule Display */}
+            {request.type === 'DATE_SHEET' && (
+              <div className="space-y-2">
+                {request.targetCourseId && (
+                  <div className="text-xs font-semibold text-[#24352B]">
+                    Course:{' '}
+                    <span className="text-[#0d402c]">
+                      {request.targetCourseId.code} · {request.targetCourseId.title}
+                    </span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div className="p-2.5 bg-white rounded-lg border border-[#DEDCD1]">
+                    <div className="text-[10px] text-[#59645B] uppercase font-bold">Current Booked Slot</div>
+                    <div className="font-semibold text-[#24352B] mt-0.5">
+                      {formatSlotDateTime(request.currentSlotId)}
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 bg-[#E7EEE3] rounded-lg border border-[#285742]/40">
+                    <div className="text-[10px] text-[#285742] uppercase font-bold flex items-center gap-1">
+                      <span>Requested New Slot</span>
+                      <HiArrowRight className="w-3 h-3" />
+                    </div>
+                    <div className="font-bold text-[#0d402c] mt-0.5">
+                      {formatSlotDateTime(request.requestedSlotId)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <p className="text-[11px] text-[#59645B] pt-1 border-t border-[#DEDCD1]/60">
+              {isPending
+                ? 'Approving will immediately reassign the student to the requested campus or exam slot. Rejecting will leave the current schedule untouched.'
+                : 'This request has already been finalized.'}
+            </p>
+          </div>
+
           {/* Request Reason */}
           <div className="space-y-1.5">
             <label className="font-semibold text-[#24352B] uppercase tracking-wider text-[11px] flex items-center gap-1.5">
               <HiDocumentText className="w-4 h-4 text-[#285742]" />
               Student Justification / Submitted Reason:
             </label>
-            <div className="p-3 bg-[#FFFFFF] rounded-xl border border-[#DEDCD1] text-xs leading-relaxed text-[#24352B]">
-              {request.reason}
+            <div className="p-3 bg-[#FFFFFF] rounded-xl border border-[#DEDCD1] text-xs leading-relaxed text-[#24352B] italic">
+              “{request.reason}”
             </div>
             <div className="text-[11px] text-[#717973]">
               Date Raised: {new Date(request.createdAt).toLocaleString()}
@@ -192,7 +295,7 @@ export function RequestReviewModal({
                 rows={2}
                 value={remark}
                 onChange={(e) => setRemark(e.target.value)}
-                placeholder="e.g. Approved. You may select your replacement branch once in your portal."
+                placeholder="e.g. Approved. Campus branch transferred per your relocation request."
                 className="w-full px-3 py-2 text-xs border border-[#DEDCD1] rounded-xl focus:outline-none focus:border-[#285742] bg-[#FFFFFF]"
               />
               <p className="text-[10px] text-[#59645B]">
@@ -202,23 +305,23 @@ export function RequestReviewModal({
           )}
         </div>
 
-        {/* Footer Actions */}
-        <div className="px-6 py-3.5 border-t border-[#EAE7DD] bg-[#F7F5EF] flex items-center justify-between">
+        {/* Modal Footer Actions */}
+        <div className="px-6 py-4 bg-[#F7F5EF] border-t border-[#EAE7DD] flex items-center justify-between">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-[#59645B] hover:text-[#24352B] border border-[#DEDCD1] rounded-xl hover:bg-[#FFFFFF] transition-colors"
+            className="px-4 py-2 border border-[#DEDCD1] rounded-xl text-xs font-semibold text-[#59645B] hover:bg-[#EAE7DD] transition-colors"
           >
             Close
           </button>
 
           {isPending && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <button
                 type="button"
                 disabled={submitting}
                 onClick={() => handleDecision('REJECTED')}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#A3342F] hover:bg-[#852a26] rounded-xl shadow-xs transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-[#FAEAE7] border border-[#A3342F]/30 text-[#A3342F] hover:bg-[#A3342F] hover:text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
               >
                 <HiXCircle className="w-4 h-4" />
                 <span>Reject</span>
@@ -228,14 +331,10 @@ export function RequestReviewModal({
                 type="button"
                 disabled={submitting}
                 onClick={() => handleDecision('APPROVED')}
-                className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-semibold text-white bg-[#285742] hover:bg-[#1f4534] rounded-xl shadow-xs transition-colors disabled:opacity-50"
+                className="px-5 py-2 bg-[#285742] hover:bg-[#204735] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
               >
-                {submitting ? (
-                  <HiArrowPath className="w-4 h-4 animate-spin" />
-                ) : (
-                  <HiCheck className="w-4 h-4 stroke-[2]" />
-                )}
-                <span>Approve & Grant Unlock</span>
+                <HiCheck className="w-4 h-4" />
+                <span>{submitting ? 'Processing...' : 'Approve & Apply Change'}</span>
               </button>
             </div>
           )}

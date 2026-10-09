@@ -65,10 +65,15 @@ export function LockedDateSheetView({
   const [requestType, setRequestType] = useState<'BRANCH' | 'DATE_SHEET'>('DATE_SHEET');
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [targetBranchId, setTargetBranchId] = useState('');
+  const [plannerCourses, setPlannerCourses] = useState<any[]>([]);
+  const [plannerSlots, setPlannerSlots] = useState<any[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [selectedSlotId, setSelectedSlotId] = useState('');
 
   // Branch transfer modal state
   const [branchModalOpen, setBranchModalOpen] = useState(false);
-  const [branches, setBranches] = useState<Array<{ _id: string; name: string; city: string; address: string }>>([]);
+  const [branches, setBranches] = useState<Array<{ _id: string; name: string; code: string; city: string; address: string }>>([]);
   const [selectedBranchId, setSelectedBranchId] = useState('');
   const [updatingBranch, setUpdatingBranch] = useState(false);
 
@@ -92,6 +97,27 @@ export function LockedDateSheetView({
     }
   };
 
+  const handleOpenHelpModal = async () => {
+    setHelpModalOpen(true);
+    try {
+      const [bRes, pRes] = await Promise.all([
+        fetch('/api/branches'),
+        fetch('/api/student/planner'),
+      ]);
+      if (bRes.ok) {
+        const bData = await bRes.json();
+        setBranches(bData.branches || []);
+      }
+      if (pRes.ok) {
+        const pData = await pRes.json();
+        setPlannerCourses(pData.courses || []);
+        setPlannerSlots(pData.slots || []);
+      }
+    } catch (err) {
+      console.error('Failed to load modal choices:', err);
+    }
+  };
+
   useEffect(() => {
     fetchRequests();
   }, []);
@@ -105,6 +131,23 @@ export function LockedDateSheetView({
   // Handle change request submit
   const handleSubmitRequest = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (requestType === 'BRANCH' && !targetBranchId) {
+      toast.error('Please select the target campus branch you wish to transfer to.');
+      return;
+    }
+
+    if (requestType === 'DATE_SHEET') {
+      if (!selectedCourseId) {
+        toast.error('Please choose which course exam you wish to reschedule.');
+        return;
+      }
+      if (!selectedSlotId) {
+        toast.error('Please choose your preferred new examination slot.');
+        return;
+      }
+    }
+
     if (!reason.trim()) {
       toast.error('Please provide a specific reason for your change request.');
       return;
@@ -112,13 +155,21 @@ export function LockedDateSheetView({
 
     setSubmitting(true);
     try {
+      const payload: any = {
+        type: requestType,
+        reason: reason.trim(),
+      };
+      if (requestType === 'BRANCH') {
+        payload.requestedBranchId = targetBranchId;
+      } else {
+        payload.targetCourseId = selectedCourseId;
+        payload.requestedSlotId = selectedSlotId;
+      }
+
       const res = await fetch('/api/requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: requestType,
-          reason: reason.trim(),
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -129,6 +180,9 @@ export function LockedDateSheetView({
 
       toast.success('Change request ticket submitted to Registrar Office.');
       setReason('');
+      setTargetBranchId('');
+      setSelectedCourseId('');
+      setSelectedSlotId('');
       setHelpModalOpen(false);
       fetchRequests();
     } catch {
@@ -353,7 +407,7 @@ export function LockedDateSheetView({
             {/* Need Help: Change Requests Button */}
             <button
               type="button"
-              onClick={() => setHelpModalOpen(true)}
+              onClick={handleOpenHelpModal}
               className="px-4 py-2.5 rounded-xl bg-[#F0EEE6] hover:bg-[#E7EEE3] text-[#24352B] text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer border border-[#DEDCD1]"
             >
               <HiQuestionMarkCircle className="w-4 h-4 text-[#285742]" />
@@ -533,14 +587,91 @@ export function LockedDateSheetView({
                       <HiCalendarDays className="w-4 h-4" />
                       <span>2. Change Date Sheet</span>
                     </div>
-                    <div className="text-[11px] text-[#59645B] mt-0.5">Reopen slot selection</div>
+                    <div className="text-[11px] text-[#59645B] mt-0.5">Reschedule timetable slot</div>
                   </button>
                 </div>
               </div>
 
+              {/* BRANCH SELECTION */}
+              {requestType === 'BRANCH' && (
+                <div className="space-y-1.5 p-3 rounded-xl bg-[#F0EEE6] border border-[#DEDCD1]">
+                  <label className="block text-xs font-bold text-[#24352B]">
+                    Select Target Campus Center <span className="text-[#A3342F]">*</span>
+                  </label>
+                  <select
+                    required
+                    value={targetBranchId}
+                    onChange={(e) => setTargetBranchId(e.target.value)}
+                    className="w-full p-2.5 bg-white border border-[#7B8578] rounded-xl text-xs text-[#24352B]"
+                  >
+                    <option value="">-- Choose New Campus --</option>
+                    {branches.map((b) => (
+                      <option key={b._id} value={b._id}>
+                        {b.code} · {b.name} ({b.city})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* DATE SHEET / EXAM SLOT SELECTION */}
+              {requestType === 'DATE_SHEET' && (
+                <div className="space-y-3 p-3 rounded-xl bg-[#F0EEE6] border border-[#DEDCD1]">
+                  <div>
+                    <label className="block text-xs font-bold text-[#24352B] mb-1">
+                      1. Select Course Exam to Reschedule <span className="text-[#A3342F]">*</span>
+                    </label>
+                    <select
+                      required
+                      value={selectedCourseId}
+                      onChange={(e) => {
+                        setSelectedCourseId(e.target.value);
+                        setSelectedSlotId('');
+                      }}
+                      className="w-full p-2.5 bg-white border border-[#7B8578] rounded-xl text-xs text-[#24352B]"
+                    >
+                      <option value="">-- Choose Course --</option>
+                      {plannerCourses.map((c: any) => (
+                        <option key={c._id} value={c._id}>
+                          {c.code} · {c.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {selectedCourseId && (
+                    <div>
+                      <label className="block text-xs font-bold text-[#24352B] mb-1">
+                        2. Select Desired New Slot <span className="text-[#A3342F]">*</span>
+                      </label>
+                      <select
+                        required
+                        value={selectedSlotId}
+                        onChange={(e) => setSelectedSlotId(e.target.value)}
+                        className="w-full p-2.5 bg-white border border-[#7B8578] rounded-xl text-xs text-[#24352B]"
+                      >
+                        <option value="">-- Choose New Exam Slot --</option>
+                        {plannerSlots
+                          .filter((s: any) => (s.courseId?._id || s.courseId) === selectedCourseId && s.status === 'PUBLISHED')
+                          .map((slot: any) => {
+                            const sDate = new Date(slot.startsAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                            const sTime = new Date(slot.startsAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                            const eTime = new Date(slot.endsAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                            return (
+                              <option key={slot._id} value={slot._id}>
+                                {sDate} ({sTime} – {eTime})
+                              </option>
+                            );
+                          })}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-[#24352B] mb-1.5">
-                  Detailed Reason / Official Justification
+                  Detailed Reason / Official Justification <span className="text-[#A3342F]">*</span>
                 </label>
                 <textarea
                   rows={4}

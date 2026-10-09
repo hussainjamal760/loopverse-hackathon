@@ -9,6 +9,8 @@ import {
   ChangeRequest,
   DateSheet,
   AuditEvent,
+  Assignment,
+  Selection,
 } from '@/server/models';
 
 export async function GET() {
@@ -52,25 +54,102 @@ export async function GET() {
     // 3. Recent Change Requests
     const recentRequestsRaw = await ChangeRequest.find()
       .sort({ createdAt: -1 })
-      .limit(6)
-      .populate('studentId', 'fullName registrationNumber')
+      .limit(8)
+      .populate({
+        path: 'studentId',
+        select: 'fullName registrationNumber program selectedBranchId',
+        populate: { path: 'selectedBranchId', select: 'name code city' },
+      })
+      .populate('currentBranchId', 'name code city')
+      .populate('requestedBranchId', 'name code city')
+      .populate('targetCourseId', 'code title department')
+      .populate('currentSlotId', 'startsAt endsAt')
+      .populate('requestedSlotId', 'startsAt endsAt')
       .lean();
 
-    const recentRequests = recentRequestsRaw.map((r: any) => ({
-      id: String(r._id),
-      studentName: r.studentId?.fullName || 'Student',
-      registrationNumber: r.studentId?.registrationNumber || 'N/A',
-      initials: (r.studentId?.fullName || 'ST')
-        .split(' ')
-        .map((n: string) => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2),
-      requestType: r.type === 'BRANCH' ? 'Branch change' : 'Date sheet change',
-      status: r.status,
-      reason: r.reason,
-      createdAt: r.createdAt,
-    }));
+    const studentIds = recentRequestsRaw
+      .map((r: any) => r.studentId?._id)
+      .filter(Boolean);
+
+    const [assignmentsByStudent, dateSheetsByStudent] = await Promise.all([
+      studentIds.length > 0
+        ? Assignment.aggregate([
+            { $match: { studentId: { $in: studentIds } } },
+            { $group: { _id: '$studentId', count: { $sum: 1 } } },
+          ])
+        : [],
+      studentIds.length > 0
+        ? DateSheet.find({ studentId: { $in: studentIds } }).select('_id studentId').lean()
+        : [],
+    ]);
+
+    const assignmentCountMap = new Map(
+      assignmentsByStudent.map((a: any) => [String(a._id), a.count])
+    );
+    const dateSheetIds = dateSheetsByStudent.map((ds: any) => ds._id);
+    const selectionsBySheet = dateSheetIds.length > 0
+      ? await Selection.aggregate([
+          { $match: { dateSheetId: { $in: dateSheetIds } } },
+          { $group: { _id: '$dateSheetId', count: { $sum: 1 } } },
+        ])
+      : [];
+    const selectionCountMap = new Map(
+      selectionsBySheet.map((s: any) => [String(s._id), s.count])
+    );
+    const studentToSheetMap = new Map(
+      dateSheetsByStudent.map((ds: any) => [String(ds.studentId), String(ds._id)])
+    );
+
+    const recentRequests = recentRequestsRaw.map((r: any) => {
+      const sId = r.studentId?._id ? String(r.studentId._id) : '';
+      const totalCourses = assignmentCountMap.get(sId) || 0;
+      const sheetId = studentToSheetMap.get(sId);
+      const bookedCourses = sheetId ? (selectionCountMap.get(sheetId) || 0) : 0;
+      const branchName =
+        r.currentBranchId?.name ||
+        r.studentId?.selectedBranchId?.name ||
+        'Main Campus';
+      const branchCity =
+        r.currentBranchId?.city ||
+        r.studentId?.selectedBranchId?.city ||
+        '';
+      const requestedBranchName = r.requestedBranchId?.name || null;
+
+      let currentSlotTime: string | null = null;
+      if (r.currentSlotId?.startsAt) {
+        try {
+          const sDate = new Date(r.currentSlotId.startsAt);
+          currentSlotTime = `${sDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}, ${sDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+        } catch {}
+      }
+
+      return {
+        id: String(r._id),
+        studentName: r.studentId?.fullName || 'Student',
+        registrationNumber: r.studentId?.registrationNumber || 'N/A',
+        program: r.studentId?.program || 'Degree Program',
+        branchName,
+        branchCity,
+        requestedBranchName,
+        targetCourseCode: r.targetCourseId?.code || null,
+        targetCourseTitle: r.targetCourseId?.title || null,
+        currentSlotTime,
+        bookedCoursesCount: bookedCourses,
+        totalCoursesCount: totalCourses,
+        initials: (r.studentId?.fullName || 'ST')
+          .split(' ')
+          .map((n: string) => n[0])
+          .join('')
+          .toUpperCase()
+          .slice(0, 2),
+        requestType: r.type === 'BRANCH' ? 'Branch change' : 'Date sheet change',
+        type: r.type,
+        status: r.status,
+        reason: r.reason || '',
+        remark: r.remark || '',
+        createdAt: r.createdAt,
+      };
+    });
 
     // 4. Upcoming Exam Slots
     const upcomingSlotsRaw = await ExamSlot.find({ status: 'PUBLISHED' })

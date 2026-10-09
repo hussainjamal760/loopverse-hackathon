@@ -190,15 +190,29 @@ export function RequestsTable() {
                       </td>
                       <td className="px-5 py-3.5">
                         {req.type === 'BRANCH' ? (
-                          <span className="inline-flex items-center gap-1 font-semibold text-[#285742] bg-[#E7EEE3] px-2.5 py-0.5 rounded-full border border-[#285742]/20">
-                            <HiBuildingOffice2 className="w-3.5 h-3.5" />
-                            Branch Transfer
-                          </span>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="inline-flex items-center gap-1 font-semibold text-[#285742] bg-[#E7EEE3] px-2.5 py-0.5 rounded-full border border-[#285742]/20 w-fit">
+                              <HiBuildingOffice2 className="w-3.5 h-3.5" />
+                              Branch Transfer
+                            </span>
+                            {req.requestedBranchId && (
+                              <span className="text-[11px] text-[#59645B] pl-1 font-medium">
+                                ➔ {req.requestedBranchId.name || req.requestedBranchId.code}
+                              </span>
+                            )}
+                          </div>
                         ) : (
-                          <span className="inline-flex items-center gap-1 font-semibold text-[#795D18] bg-[#F5EDCE] px-2.5 py-0.5 rounded-full border border-[#e7c273]">
-                            <HiCalendarDays className="w-3.5 h-3.5" />
-                            Date Sheet Reschedule
-                          </span>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="inline-flex items-center gap-1 font-semibold text-[#795D18] bg-[#F5EDCE] px-2.5 py-0.5 rounded-full border border-[#e7c273] w-fit">
+                              <HiCalendarDays className="w-3.5 h-3.5" />
+                              Exam Reschedule
+                            </span>
+                            {req.targetCourseId && (
+                              <span className="text-[11px] text-[#59645B] pl-1 font-medium">
+                                ➔ {req.targetCourseId.code}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
                       <td className="px-5 py-3.5 max-w-sm truncate text-[#24352B]">
