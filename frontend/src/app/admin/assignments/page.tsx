@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { AssignmentManagementView } from '@/features/admin';
 import { HiAcademicCap } from 'react-icons/hi2';
 
@@ -28,7 +28,9 @@ export default function AdminAssignmentsPage() {
       </div>
 
       {/* Main Feature View */}
-      <AssignmentManagementView />
+      <Suspense fallback={<div className="p-8 text-center text-xs text-[#59645B]">Loading assignments workspace...</div>}>
+        <AssignmentManagementView />
+      </Suspense>
     </div>
   );
 }

@@ -27,26 +27,162 @@ function formatRelativeTime(dateString: string): string {
   }
 }
 
-function parseActivityText(item: RecentActivityItem): { title: string; subtitle: string } {
-  const meta = item.metadata || '';
-  const action = item.action.toUpperCase();
+function formatFriendlyDate(dateStr?: string): string {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return '';
+  }
+}
 
-  if (meta) {
+function parseJsonMetadata(raw?: string | null): Record<string, any> | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) {
+    return null;
+  }
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+}
+
+function parseActivityText(item: RecentActivityItem): { title: string; subtitle: string } {
+  const metaObj = parseJsonMetadata(item.metadata);
+  const action = (item.action || '').toUpperCase();
+  const entityType = item.entityType || '';
+  const actor = item.actorEmail || 'System Admin';
+
+  // If metadata is a plain text sentence (e.g. from seed or manual logs)
+  if (!metaObj && item.metadata && item.metadata.trim()) {
     return {
-      title: meta,
-      subtitle: `${item.entityType} · ${item.actorEmail || 'System Admin'}`,
+      title: item.metadata.trim(),
+      subtitle: `${entityType} · ${actor}`,
     };
   }
 
-  // Fallback to formatted action names
-  const friendlyName = action
+  // 1. Exam Slot activities
+  if (action.includes('EXAM_SLOT') || entityType === 'ExamSlot') {
+    const courseCode = metaObj?.courseCode;
+    const status = metaObj?.status;
+    const dateFormatted = formatFriendlyDate(metaObj?.startsAt);
+
+    let title = 'Updated exam slot';
+    if (action.includes('CREATE') || action.includes('PUBLISH')) {
+      title = status === 'PUBLISHED'
+        ? `Published exam slot${courseCode ? ` for ${courseCode}` : ''}`
+        : `Created draft slot${courseCode ? ` for ${courseCode}` : ''}`;
+    } else if (status === 'PUBLISHED') {
+      title = `Published exam slot${courseCode ? ` for ${courseCode}` : ''}`;
+    } else if (courseCode) {
+      title = `Updated exam slot for ${courseCode}`;
+    }
+
+    const subParts = [dateFormatted, actor].filter(Boolean);
+    return {
+      title,
+      subtitle: subParts.join(' · ') || `${entityType} · ${actor}`,
+    };
+  }
+
+  // 2. Student activities
+  if (action.includes('STUDENT') || entityType === 'Student') {
+    const regNo = metaObj?.registrationNumber;
+    const program = metaObj?.program;
+    const email = metaObj?.email;
+
+    let title = 'Updated student record';
+    if (action.includes('CREATE') || action.includes('ENROLL')) {
+      title = `Enrolled student ${regNo || email || ''}`.trim();
+    } else if (action.includes('DELETE')) {
+      title = `Removed student ${regNo || ''}`.trim();
+    } else if (regNo) {
+      title = `Updated student ${regNo}`;
+    }
+
+    const subParts = [program, email || actor].filter(Boolean);
+    return {
+      title,
+      subtitle: subParts.join(' · ') || `${entityType} · ${actor}`,
+    };
+  }
+
+  // 3. Password & Auth activities
+  if (action.includes('PASSWORD') || action.includes('AUTH') || entityType === 'User') {
+    const email = metaObj?.email;
+    const purpose = metaObj?.purpose;
+    const isSetup = purpose === 'SETUP' || action.includes('SETUP');
+
+    return {
+      title: `Student account verified (${isSetup ? 'Setup' : 'Reset'})`,
+      subtitle: `${email || actor} · Password updated`,
+    };
+  }
+
+  // 4. Change Request decisions
+  if (action.includes('CHANGE_REQUEST') || action.includes('REQUEST') || entityType === 'ChangeRequest') {
+    const isApproved = action.includes('APPROVE') || metaObj?.status === 'APPROVED';
+    const reqType = metaObj?.type === 'BRANCH' ? 'branch change' : 'date sheet';
+    const regNo = metaObj?.studentReg;
+
+    return {
+      title: `${isApproved ? 'Approved' : 'Rejected'} ${reqType} request`,
+      subtitle: `${regNo ? `Student ${regNo} · ` : ''}${actor}`,
+    };
+  }
+
+  // 5. Branch activities
+  if (action.includes('BRANCH') || entityType === 'Branch') {
+    const nameOrCode = metaObj?.name || metaObj?.code || '';
+    const isCreate = action.includes('CREATE');
+    const isDelete = action.includes('DELETE');
+
+    return {
+      title: `${isCreate ? 'Created' : isDelete ? 'Removed' : 'Updated'} campus branch ${nameOrCode}`.trim(),
+      subtitle: `${metaObj?.city ? `${metaObj.city} · ` : ''}${actor}`,
+    };
+  }
+
+  // 6. Course activities
+  if (action.includes('COURSE') || entityType === 'Course') {
+    const code = metaObj?.code || '';
+    const title = metaObj?.title || '';
+    const isCreate = action.includes('CREATE');
+
+    return {
+      title: `${isCreate ? 'Added' : 'Updated'} course ${code}`.trim(),
+      subtitle: `${title ? `${title} · ` : ''}${actor}`,
+    };
+  }
+
+  // 7. Course Assignments
+  if (action.includes('ASSIGNMENT')) {
+    const studentReg = metaObj?.studentReg;
+    return {
+      title: `Updated course assignments${studentReg ? ` for ${studentReg}` : ''}`,
+      subtitle: `${metaObj?.count ? `${metaObj.count} courses · ` : ''}${actor}`,
+    };
+  }
+
+  // Fallback: format action string cleanly
+  const friendlyAction = action
     .replace(/_/g, ' ')
     .toLowerCase()
     .replace(/^\w/, (c) => c.toUpperCase());
 
   return {
-    title: `${friendlyName} on ${item.entityType}`,
-    subtitle: `By ${item.actorEmail || 'System Admin'}`,
+    title: `${friendlyAction} on ${entityType || 'system'}`,
+    subtitle: `By ${actor}`,
   };
 }
 
@@ -77,7 +213,7 @@ export function RecentActivityCard({ activities = [] }: RecentActivityCardProps)
                     }`}
                   />
                   <div className="min-w-0 pr-2">
-                    <p className="text-xs sm:text-sm text-[#0e1f16] leading-snug font-normal line-clamp-2">
+                    <p className="text-xs sm:text-sm text-[#0e1f16] leading-snug font-medium line-clamp-2">
                       {title}
                     </p>
                     <p className="text-xs text-[#414943] mt-0.5 truncate">{subtitle}</p>
