@@ -72,18 +72,42 @@ export default function AdminOverviewPage() {
             id: r.id || r._id || String(idx),
             studentName: r.studentName || r.studentId?.fullName || 'Student',
             registrationNumber: r.registrationNumber || r.studentId?.registrationNumber || 'N/A',
-            initials: (r.studentName || r.studentId?.fullName || 'ST')
-              .split(' ')
-              .map((n: string) => n[0])
-              .join('')
-              .toUpperCase()
-              .slice(0, 2),
+            initials:
+              r.initials ||
+              (r.studentName || r.studentId?.fullName || 'ST')
+                .split(' ')
+                .map((n: string) => n[0])
+                .join('')
+                .toUpperCase()
+                .slice(0, 2),
             requestType:
               r.requestType || (r.type === 'BRANCH' ? 'Branch change' : 'Date sheet change'),
+            type: r.type,
+            status: r.status,
             raisedTime: formatRaisedTime(r.createdAt),
             reason: r.reason,
+            remark: r.remark,
+            program: r.program || r.studentId?.program,
+            branchName: r.branchName,
+            branchCity: r.branchCity,
+            requestedBranchName: r.requestedBranchName,
+            targetCourseCode: r.targetCourseCode,
+            targetCourseTitle: r.targetCourseTitle,
+            currentSlotTime: r.currentSlotTime,
+            bookedCoursesCount: r.bookedCoursesCount,
+            totalCoursesCount: r.totalCoursesCount,
+            createdAt: r.createdAt,
           }));
           setRecentRequests(formatted);
+
+          setSelectedReviewRequest((prev) => {
+            if (prev) {
+              const updated = formatted.find((item) => item.id === prev.id);
+              if (updated) return updated;
+            }
+            const pendingReq = formatted.find((item) => item.status === 'PENDING');
+            return pendingReq || formatted[0] || null;
+          });
         }
       } else {
         const errData = await res.json().catch(() => ({}));
@@ -146,7 +170,13 @@ export default function AdminOverviewPage() {
           <PendingRequestsTable
             requests={recentRequests}
             pendingCount={stats?.pendingRequests}
-            onSelectReview={(req) => setSelectedReviewRequest(req)}
+            onSelectReview={(req) => {
+              setSelectedReviewRequest(req);
+              const el = document.getElementById('request-review-section');
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+              }
+            }}
           />
         </div>
         <div className="lg:col-span-4">
@@ -165,11 +195,13 @@ export default function AdminOverviewPage() {
       </section>
 
       {/* 6. Request Review Drawer Companion Workspace */}
-      <RequestReviewDrawer
-        selectedRequest={selectedReviewRequest}
-        onClear={() => setSelectedReviewRequest(null)}
-        onDecided={fetchOverview}
-      />
+      <div id="request-review-section">
+        <RequestReviewDrawer
+          selectedRequest={selectedReviewRequest}
+          onClear={() => setSelectedReviewRequest(null)}
+          onDecided={fetchOverview}
+        />
+      </div>
 
       {/* 7. System Status Footer */}
       <AdminFooter />
