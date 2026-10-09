@@ -1,0 +1,240 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String          @id @default(uuid())
+  email        String          @unique
+  passwordHash String?
+  role         String          // ADMIN, STUDENT
+  active       Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  student      Student?
+  sessions     Session[]
+  tokens       PasswordToken[]
+  emails       EmailOutbox[]
+  auditEvents  AuditEvent[]
+}
+
+model Session {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PasswordToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  purpose   String    // SETUP, RESET
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Student {
+  id                   String          @id @default(uuid())
+  userId               String          @unique
+  registrationNumber   String          @unique
+  fullName             String
+  phone                String
+  cnic                 String
+  dateOfBirth          DateTime
+  gender               String
+  address              String
+  photoUrl             String?
+  
+  // Parent/Guardian
+  fatherName           String
+  parentCnic           String
+  occupation           String
+  contactNumber        String
+  emergencyContact     String
+  
+  // Academic
+  program              String
+  semester             Int
+  sessionBatch         String
+  prevQualification    String
+  prevInstitute        String
+  marksOrCgpa          String
+
+  selectedBranchId     String?
+  assignmentsFinalized Boolean         @default(false)
+  version              Int             @default(1)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  user                 User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  selectedBranch       Branch?         @relation(fields: [selectedBranchId], references: [id])
+  assignments          Assignment[]
+  dateSheet            DateSheet?
+  changeRequests       ChangeRequest[]
+  changeGrants         ChangeGrant[]
+}
+
+model Branch {
+  id            String          @id @default(uuid())
+  code          String          @unique
+  name          String
+  city          String
+  address       String
+  contactNumber String
+  active        Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  students      Student[]
+  revisions     SheetRevision[]
+}
+
+model Course {
+  id          String       @id @default(uuid())
+  code        String       @unique
+  title       String
+  creditHours Int
+  department  String
+  active      Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  assignments Assignment[]
+  examSlots   ExamSlot[]
+  selections  Selection[]
+}
+
+model Assignment {
+  id        String   @id @default(uuid())
+  studentId String
+  courseId  String
+  createdAt DateTime @default(now())
+
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, courseId])
+}
+
+model ExamSlot {
+  id        String      @id @default(uuid())
+  courseId  String
+  startsAt  DateTime
+  endsAt    DateTime
+  status    String      // DRAFT, PUBLISHED
+  version   Int         @default(1)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  course    Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  selections Selection[]
+
+  @@unique([courseId, startsAt, endsAt])
+}
+
+model DateSheet {
+  id              String          @id @default(uuid())
+  studentId       String          @unique
+  currentRevision Int             @default(1)
+  savedAt         DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  student         Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  selections      Selection[]
+  revisions       SheetRevision[]
+}
+
+model Selection {
+  id          String    @id @default(uuid())
+  dateSheetId String
+  courseId    String
+  slotId      String
+
+  dateSheet   DateSheet @relation(fields: [dateSheetId], references: [id], onDelete: Cascade)
+  course      Course    @relation(fields: [courseId], references: [id])
+  slot        ExamSlot  @relation(fields: [slotId], references: [id])
+
+  @@unique([dateSheetId, courseId])
+}
+
+model SheetRevision {
+  id               String    @id @default(uuid())
+  dateSheetId      String
+  revision         Int
+  branchId         String
+  documentSnapshot String    // JSON string representation
+  reason           String?
+  createdAt        DateTime  @default(now())
+
+  dateSheet        DateSheet @relation(fields: [dateSheetId], references: [id], onDelete: Cascade)
+  branch           Branch    @relation(fields: [branchId], references: [id])
+
+  @@unique([dateSheetId, revision])
+}
+
+model ChangeRequest {
+  id          String       @id @default(uuid())
+  studentId   String
+  type        String       // BRANCH, DATE_SHEET
+  reason      String
+  status      String       // PENDING, APPROVED, REJECTED
+  remark      String?
+  reviewedBy  String?
+  createdAt   DateTime     @default(now())
+  reviewedAt  DateTime?
+
+  student     Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  grant       ChangeGrant?
+}
+
+model ChangeGrant {
+  id         String        @id @default(uuid())
+  requestId  String        @unique
+  studentId  String
+  type       String        // BRANCH, DATE_SHEET
+  consumedAt DateTime?
+  createdAt  DateTime      @default(now())
+
+  request    ChangeRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  student    Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model EmailOutbox {
+  id              String    @id @default(uuid())
+  userId          String
+  template        String
+  relatedEntityId String?
+  status          String    // PENDING, SENT, FAILED
+  attempts        Int       @default(0)
+  nextAttemptAt   DateTime  @default(now())
+  sentAt          DateTime?
+  sanitizedError  String?
+  createdAt       DateTime  @default(now())
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditEvent {
+  id                String   @id @default(uuid())
+  actorUserId       String
+  action            String
+  entityType        String
+  entityId          String
+  sanitizedMetadata String?  // JSON string
+  createdAt         DateTime @default(now())
+
+  actor             User     @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+}

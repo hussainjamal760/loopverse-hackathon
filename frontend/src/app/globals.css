@@ -1,26 +1,88 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  color-scheme: light;
+  --canvas: #f7f5ef;
+  --surface: #ffffff;
+  --surface-soft: #f0eee6;
+  --ink: #24352b;
+  --ink-muted: #59645b;
+  --primary: #285742;
+  --primary-hover: #204735;
+  --selected: #e7eee3;
+  --accent: #9a4f36;
+  --accent-soft: #f5e6dc;
+  --warning: #795d18;
+  --warning-soft: #f5edce;
+  --danger: #a3342f;
+  --danger-soft: #faeae7;
+  --border: #dedcd1;
+  --control-border: #7b8578;
+  --radius-control: 12px;
+  --radius-card: 20px;
+  --radius-dialog: 24px;
+  --shadow-card: 0 4px 20px rgb(36 53 43 / 0.045);
+  --shadow-overlay: 0 16px 48px rgb(36 53 43 / 0.12);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Custom utility classes matching design tokens */
+.bg-canvas { background-color: var(--canvas); }
+.bg-surface { background-color: var(--surface); }
+.bg-surface-soft { background-color: var(--surface-soft); }
+.bg-primary { background-color: var(--primary); }
+.bg-primary-hover { background-color: var(--primary-hover); }
+.bg-selected { background-color: var(--selected); }
+.bg-accent-soft { background-color: var(--accent-soft); }
+.bg-warning-soft { background-color: var(--warning-soft); }
+.bg-danger-soft { background-color: var(--danger-soft); }
+
+.text-ink { color: var(--ink); }
+.text-ink-muted { color: var(--ink-muted); }
+.text-primary { color: var(--primary); }
+.text-accent { color: var(--accent); }
+.text-warning { color: var(--warning); }
+.text-danger { color: var(--danger); }
+
+.border-default { border-color: var(--border); }
+.border-control { border-color: var(--control-border); }
+
+/* Print layout optimizations */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  @page {
+    margin: 12mm;
+    size: A4;
+  }
 }
